@@ -1,6 +1,6 @@
 # autoclaw 组件映射表
 
-探测日期：2026-09-19 | 目标程序：AutoClaw（Chromium/Electron 网页应用）
+探测日期：2026-09-19 | 目标程序：AutoClaw（Chromium/Electron 网页应用）**v1.18.4**
 
 ## 窗口定位
 | 项 | 值 |

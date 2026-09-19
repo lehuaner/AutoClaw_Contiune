@@ -12,6 +12,8 @@ AutoClaw 运行中若被后端限流，界面会弹出"当前使用人数较多"
 ## 特性
 
 - 实时监控日志，识别限流状态码后自动触发"继续"
+- 适配 **AutoClaw 桌面端 v1.18.4**（应用版本；底层 OpenClaw Gateway 2026.6.8）。若 AutoClaw
+  升级导致组件映射或日志格式变化，请同步更新 `autoclaw_mapper.md` 与 AUTO 定位参数。
 - 「UIA 优先、坐标兜底」双通道交互：
   - **UIA**：通过可访问性树直接注入输入框文本并发送回车（主方案）
   - 坐标 + 剪贴板：UIA 不可用时自动回退
@@ -50,6 +52,19 @@ pythonw autoclaw_continue.pyw
 - 启动后自动隐藏到系统托盘并自动开始监控；从托盘菜单可「显示窗口 / 停止监控 / 退出」。
 - 运行日志（启动、参数、日志定位、异常等）写入脚本同目录的 `autoclaw.log`，
   排查启动闪烁、托盘退出、日志定位等问题时可查看该文件。
+
+## 模块结构
+
+代码已按职责拆分到 `autoclaw_mod/` 包，`autoclaw_continue.py` 仅为启动入口：
+
+| 模块 | 职责 |
+|---|---|
+| `autoclaw_mod/win32ops.py` | win32 / 键盘 / 鼠标 / 剪贴板 / 窗口助手（纯 ctypes，无需 pywin32） |
+| `autoclaw_mod/logwatcher.py` | `gateway.log` 增量解析，提取响应状态码及所属代理/会话 |
+| `autoclaw_mod/notify.py` | Windows 系统通知（Toast，可选 winotify） |
+| `autoclaw_mod/app.py` | 主界面 + 监控 / 自动"继续"逻辑（主业务） |
+| `autoclaw_mod/entry.py` | 启动编排：日志落盘 / 隐藏控制台 / 提权重启 / 单实例锁 / `main()` |
+| `autoclaw_continue.py(.w/.pyw)` | 启动入口 |
 
 ## 配置
 
