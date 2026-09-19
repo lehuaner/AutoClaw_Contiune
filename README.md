@@ -35,12 +35,18 @@ pip install -r requirements.txt
 
 ## 运行
 
+**推荐：双击 `autoclaw_continue.pyw`** —— 用 pythonw 无控制台启动，不会出现黑色终端。
+
+或用命令行：
+
 ```bash
-pythonw autoclaw_continue.py
+pythonw autoclaw_continue.pyw
 ```
 
-- 用 `pythonw`（而非 `python`）启动可避免黑色终端窗口闪烁；
-  用 `python` 启动时程序会自动隐藏其控制台窗口。
+> 不要用 `python autoclaw_continue.py` 启动：`python.exe` 是控制台程序，
+> 一定会弹出黑色终端（脚本内的隐藏代码只能藏起来，无法消除）。
+> `.pyw`/`pythonw` 本身不带控制台，才会完全不见终端。
+
 - 启动后自动隐藏到系统托盘并自动开始监控；从托盘菜单可「显示窗口 / 停止监控 / 退出」。
 - 运行日志（启动、参数、日志定位、异常等）写入脚本同目录的 `autoclaw.log`，
   排查启动闪烁、托盘退出、日志定位等问题时可查看该文件。
