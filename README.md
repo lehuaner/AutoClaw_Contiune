@@ -15,6 +15,8 @@ AutoClaw 运行中若被后端限流，界面会弹出"当前使用人数较多"
 - 「UIA 优先、坐标兜底」双通道交互：
   - **UIA**：通过可访问性树直接注入输入框文本并发送回车（主方案）
   - 坐标 + 剪贴板：UIA 不可用时自动回退
+- 后台驻留：启动后**自动最小化到托盘**并**自动开始监控**，无需手动操作
+- 启动监控时弹出 **Windows 系统通知**，并在日志区展示本次关键参数
 - 冷却 / 错误寿命控制，防止重复发送与误触发
 - 系统托盘常驻（pystray 可选，缺失不阻塞主功能）
 - 仅依赖 Windows 标准库 + ctypes，无需 pywin32
@@ -22,7 +24,8 @@ AutoClaw 运行中若被后端限流，界面会弹出"当前使用人数较多"
 ## 依赖
 
 - Python 3（自带 tkinter/ctypes）
-- 可选：`uiautomation`、`pystray`、`Pillow`（缺失时自动降级）
+- 可选：`uiautomation`、`pystray`、`Pillow`、`winotify`（缺失时自动降级；
+  `winotify` 缺失则跳过 Windows 通知）
 
 安装可选依赖：
 
@@ -33,8 +36,12 @@ pip install -r requirements.txt
 ## 运行
 
 ```bash
-python autoclaw_continue.py
+pythonw autoclaw_continue.py
 ```
+
+- 用 `pythonw`（而非 `python`）启动可避免黑色终端窗口闪烁；
+  用 `python` 启动时程序会自动隐藏其控制台窗口。
+- 启动后自动隐藏到系统托盘并自动开始监控；从托盘菜单可「显示窗口 / 停止监控 / 退出」。
 
 ## 配置
 

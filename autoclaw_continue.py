@@ -340,6 +340,9 @@ class App:
         self.root.bind("<Unmap>", self._on_minimize)   # 最小化→托盘
         self._tray = None
         self._setup_tray()
+        # 后台驻留：启动后自动最小化到托盘，稍后自动开始监控
+        self.root.after(600, self._auto_minimize)
+        self.root.after(900, self._auto_start)
 
     # ---------------- UI ----------------
     def _default_cfg(self):
@@ -658,6 +661,33 @@ class App:
             pass
         self.root.destroy()
 
+    def _auto_minimize(self):
+        """后台驻留：启动后若有托盘，则把窗口最小化隐藏到托盘。"""
+        if _HAS_TRAY and self._tray is not None:
+            self._hide_to_tray()
+
+    def _auto_start(self):
+        """后台驻留：启动后自动开始监控（无需手动点「开始监控」）。"""
+        if self.running:
+            return
+        try:
+            self.toggle()
+        except Exception:
+            pass
+
+    def _summarize_params(self):
+        """本次运行的关键参数，用于日志区与 Windows 通知展示。"""
+        return "".join("  %s = %s\n" % (k, v) for k, v in (
+            ("日志", self.log_path_abs),
+            ("限流状态码", ",".join(str(x) for x in sorted(self.cfg["status_codes"]))),
+            ("窗口匹配", self.cfg["window_match"]),
+            ("目标代理", self.cfg.get("target_agent") or "全部"),
+            ("检测间隔", "%d 秒" % self.cfg["interval"]),
+            ("冷却时间", "%d 秒" % self.cfg["cooldown"]),
+            ("错误时效", "%d 秒" % self.cfg.get("error_max_age", 300)),
+            ("发送文本", self.cfg.get("continue_text", "继续")),
+        )).rstrip("\n")
+
     # ---------------- 日志显示 ----------------
     def _append_log(self, msg):
         self.txt_log.config(state="normal")
@@ -793,6 +823,10 @@ class App:
                                                    daemon=True)
             self.monitor_thread.start()
             self._append_log("开始监控日志：%s" % self.log_path_abs)
+            # 在日志区展示本次关键参数，并弹系统通知
+            params = self._summarize_params()
+            self._append_log("本次关键参数：\n%s" % params)
+            windows_notify("AutoClaw 自动继续 · 已开始监控", params)
         else:
             self.running = False
             self.btn_start.config(text="开始监控")
@@ -1622,6 +1656,18 @@ class App:
             return
         self._append_log("手动测试：执行一次继续动作…")
         self._do_continue()
+
+
+def windows_notify(title, message):
+    """弹出 Windows 系统通知（Toast）。
+
+    使用可选依赖 winotify；未安装时静默跳过，不影响主功能。"""
+    try:
+        from winotify import Notification
+        Notification(app_id="AutoClaw 自动继续",
+                     title=title, msg=message).show()
+    except Exception:
+        pass
 
 
 def hide_console():

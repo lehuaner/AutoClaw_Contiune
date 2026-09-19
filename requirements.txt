@@ -1,5 +1,6 @@
 # AutoClaw 自动继续 依赖
-# 运行：python autoclaw_continue.py
+# 运行：pythonw autoclaw_continue.py（pythonw 无黑框终端；python.exe 运行时会自动隐藏）
 uiautomation
 pystray
 Pillow
+winotify
