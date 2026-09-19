@@ -311,8 +311,8 @@ class App:
         r"%USERPROFILE%\.openclaw-autoclaw\logs\gateway.log")
     WINDOW_MATCH_DEFAULT = "AutoClaw"
     # 参数持久化文件：与本程序同目录的 JSON，启动时回填、开始时保存
-    CONFIG_PATH = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "autoclaw_continue.json")
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    CONFIG_PATH = os.path.join(BASE_DIR, "autoclaw_continue.json")
 
     def __init__(self, root):
         self.root = root
@@ -356,6 +356,21 @@ class App:
             "input_ratio": 0.58,       # 输入框在窗口中的水平比例（实测校准）
             "input_offset_y": -64,     # 距窗口底部的向上偏移（像素，实测校准）
         }
+
+    def _resolve_path(self, p):
+        """把配置路径解析为绝对路径。
+
+        绝对路径原样返回；相对路径按脚本所在目录（BASE_DIR）解析。
+        同时支持 %VAR% 环境变量与 ~ 用户目录展开。"""
+        p = os.path.expandvars(os.path.expanduser((p or "").strip()))
+        if os.path.isabs(p):
+            return p
+        return os.path.join(self.BASE_DIR, p)
+
+    @property
+    def log_path_abs(self):
+        """解析后的日志绝对路径（相对路径相对脚本目录）。"""
+        return self._resolve_path(self.cfg.get("log_path"))
 
     def _build_ui(self):
         pad = {"padx": 8, "pady": 4}
@@ -636,7 +651,7 @@ class App:
 
     def _read_raw_new(self):
         """增量读取原始 gateway.log 的全部新增行（含窗口轮转处理）。"""
-        path = self.cfg.get("log_path")
+        path = self.log_path_abs
         try:
             size = os.path.getsize(path)
         except OSError:
@@ -656,7 +671,7 @@ class App:
 
     def _show_raw_snapshot(self):
         """切换到原始日志时：清空并加载文件末尾若干行作为起始快照。"""
-        path = self.cfg.get("log_path")
+        path = self.log_path_abs
         self.txt_log.config(state="normal")
         self.txt_log.delete("1.0", "end")
         try:
@@ -744,9 +759,9 @@ class App:
             except ValueError as e:
                 messagebox.showerror("参数错误", str(e))
                 return
-            if not os.path.exists(self.cfg["log_path"]):
+            if not os.path.exists(self.log_path_abs):
                 messagebox.showerror("找不到日志",
-                                     "日志文件不存在：\n%s" % self.cfg["log_path"])
+                                     "日志文件不存在：\n%s" % self.log_path_abs)
                 return
             self._save_cfg()        # 参数合法且日志存在，则持久化当前设置
             self.running = True
@@ -755,7 +770,7 @@ class App:
             self.monitor_thread = threading.Thread(target=self._monitor_loop,
                                                    daemon=True)
             self.monitor_thread.start()
-            self._append_log("开始监控日志：%s" % self.cfg["log_path"])
+            self._append_log("开始监控日志：%s" % self.log_path_abs)
         else:
             self.running = False
             self.btn_start.config(text="开始监控")
@@ -769,7 +784,7 @@ class App:
             ole32.CoInitializeEx(None, 0)   # 0 = COINIT_APARTMENTTHREADED(STA)
         except Exception:
             pass
-        watcher = LogWatcher(self.cfg["log_path"])
+        watcher = LogWatcher(self.log_path_abs)
         # 注：历史播种已由主线程 _seed_from_log 完成，这里仅增量处理新行
         while self.running:
             try:
@@ -799,7 +814,7 @@ class App:
     def _seed_from_log(self):
         """启动时同步读全量日志，播种会话统计并刷新树（主线程，立即显示）。"""
         try:
-            watcher = LogWatcher(self.cfg["log_path"])
+            watcher = LogWatcher(self.log_path_abs)
             for status, agent, session, ts, line in watcher.scan():
                 self._record_stats_only(status, agent, session)
             self._refresh_tree()
@@ -951,7 +966,7 @@ class App:
             utxt.insert("end", "未找到该会话的轨迹文件（%s）。\n" % slog)
             utxt.config(state="disabled")
 
-        path = self.cfg.get("log_path")
+        path = self.log_path_abs
         pairs = []                      # 按出现顺序的一条请求
         by_id = {}                      # requestId -> dict
         try:

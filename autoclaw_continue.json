@@ -1,5 +1,5 @@
 {
-  "log_path": "C:\\Users\\乐幻\\.openclaw-autoclaw\\logs\\gateway.log",
+  "log_path": "logs/gateway.log",
   "status_codes": [
     403
   ],
