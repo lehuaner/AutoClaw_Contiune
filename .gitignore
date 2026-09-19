@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+venv/
+.venv/
+env/
+
+# 运行产生的日志 / 临时文件
+@AutomationLog.txt
+*.log
+
+# IDE / 系统
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# 本地配置（含机器相关路径，按需提交 autoclaw_continue.json）
+autoclaw_continue.local.json

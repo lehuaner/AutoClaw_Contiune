@@ -1,0 +1,5 @@
+# AutoClaw 自动继续 依赖
+# 运行：python autoclaw_continue.py
+uiautomation
+pystray
+Pillow

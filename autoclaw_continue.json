@@ -1,0 +1,15 @@
+{
+  "log_path": "C:\\Users\\乐幻\\.openclaw-autoclaw\\logs\\gateway.log",
+  "status_codes": [
+    403
+  ],
+  "window_match": "AutoClaw",
+  "target_agent": "honor",
+  "interval": 5,
+  "continue_text": "继续",
+  "send_enter": true,
+  "cooldown": 60,
+  "error_max_age": 300,
+  "input_ratio": 0.58,
+  "input_offset_y": -64
+}
