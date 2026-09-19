@@ -649,6 +649,9 @@ class App:
                 pystray.MenuItem("显示窗口", self._tray_show, default=True),
                 pystray.MenuItem(toggle_label, self._tray_toggle),
                 pystray.MenuItem("退出", self._tray_quit))
+            # 让菜单变更立即在托盘层重绘，否则右键仍显示旧文本
+            if hasattr(self._tray, "update_menu"):
+                self._tray.update_menu()
         except Exception:
             pass
 
@@ -849,11 +852,13 @@ class App:
             params = self._summarize_params()
             self._append_log("本次关键参数：\n%s" % params)
             windows_notify("AutoClaw 自动继续 · 已开始监控", params)
+            self._update_tray_menu()        # 同步托盘菜单为「停止监控」
         else:
             self.running = False
             self.btn_start.config(text="开始监控")
             self.var_state.set("已停止")
             self._append_log("已停止监控。")
+            self._update_tray_menu()        # 同步托盘菜单为「开始监控」
 
     def _monitor_loop(self):
         # 后台线程使用 uiautomation 需先初始化 COM（STA 线程模型），否则 UIA 全部失败
