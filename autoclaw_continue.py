@@ -1680,6 +1680,22 @@ class App:
         self._do_continue()
 
 
+def acquire_single_instance():
+    """Windows 命名互斥锁，保证进程唯一。
+
+    返回锁句柄（须全程持有）；若已存在其它实例则返回 None，调用方应退出。
+    失败时返回非 None 的空句柄，不阻塞启动（宽松降级）。"""
+    try:
+        handle = ctypes.windll.kernel32.CreateMutexW(None, False,
+            "Local\\AutoClawContinue_SingleInstance")
+        if ctypes.windll.kernel32.GetLastError() == 183:   # ERROR_ALREADY_EXISTS
+            return None
+        return handle
+    except Exception:
+        logger.exception("创建单实例锁失败，降级为允许多开")
+        return True   # 宽松降级，非 None
+
+
 def setup_logging():
     """把运行日志写入脚本同目录的 autoclaw.log，便于排查启动/托盘等问题。"""
     try:
@@ -1729,6 +1745,12 @@ def main():
     # 未提权时自动以管理员身份重启一次，保证激活与输入有效。
     if not is_elevated() and relaunch_as_admin():
         logger.info("将以管理员身份重启")
+        return
+    # 单实例锁：放在提权判断之后，避免与管理员提权重启相互抢占锁；
+    # 句柄保存在 main 局部变量中，mainloop 期间一直被持有，进程退出时才释放
+    _mutex = acquire_single_instance()
+    if _mutex is None:
+        logger.info("已有一个实例在运行，本次启动直接退出")
         return
     root = tk.Tk()
     root.withdraw()             # 创建后立即隐藏，避免启动瞬间闪现 UI
