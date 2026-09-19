@@ -15,11 +15,14 @@ import threading
 import time
 import os
 import json
+import logging
 import urllib.parse
 import re
 from datetime import datetime
 import tkinter as tk
 from tkinter import ttk, messagebox
+
+logger = logging.getLogger("autoclaw")
 
 # 系统托盘（pystray 可选，缺失时不影响主功能）
 try:
@@ -340,9 +343,13 @@ class App:
         self.root.bind("<Unmap>", self._on_minimize)   # 最小化→托盘
         self._tray = None
         self._setup_tray()
-        # 后台驻留：启动后自动最小化到托盘，稍后自动开始监控
-        self.root.after(600, self._auto_minimize)
+        # 后台驻留：窗口在 main() 中已 withdraw；无托盘时恢复显示以便操作，
+        # 有托盘则保持隐藏，稍后自动开始监控
+        if self._tray is None:
+            self.root.deiconify()
         self.root.after(900, self._auto_start)
+        logger.info("App 初始化完成，本次关键参数：%s",
+                    self._summarize_params().replace("\n", " / "))
 
     # ---------------- UI ----------------
     def _default_cfg(self):
@@ -373,8 +380,12 @@ class App:
         ]
         for c in candidates:
             if os.path.exists(c):
-                return c
-        return candidates[0]
+                chosen = c
+                break
+        else:
+            chosen = candidates[0]
+        logger.info("定位 gateway 日志：%s", chosen)
+        return chosen
 
     def _resolve_path(self, p):
         """把配置路径解析为绝对路径。
@@ -609,13 +620,24 @@ class App:
             self._save_cfg()
         except Exception:
             pass
-        if self._tray is not None:
-            try:
-                self._tray.stop()
-            except Exception:
-                pass
         self.running = False
-        self.root.destroy()
+        tray = self._tray
+        self._tray = None
+        # 停止图标与销毁窗口都切回 tk 主线程执行，避免与托盘线程竞争导致图标残留
+        self.root.after(0, lambda: self._do_quit(tray))
+        logger.info("收到退出指令")
+
+    def _do_quit(self, tray):
+        try:
+            if tray is not None:
+                tray.visible = False
+                tray.stop()
+        except Exception:
+            logger.exception("停止托盘图标出错")
+        try:
+            self.root.destroy()
+        except Exception:
+            pass
 
     def _update_tray_menu(self):
         """刷新托盘右键菜单（显示窗口 / 启停 / 退出）。"""
@@ -647,7 +669,10 @@ class App:
                     pystray.MenuItem("显示窗口", self._tray_show, default=True),
                     pystray.MenuItem("开始监控", self._tray_toggle),
                     pystray.MenuItem("退出", self._tray_quit)))
-            icon.run_detached()
+            # 独立 daemon 线程运行托盘消息循环：
+            # 即便 stop() 异常，进程退出时托盘图标也会随线程一并消失
+            threading.Thread(target=icon.run, daemon=True,
+                             name="tray-icon").start()
             self._tray = icon
         except Exception:
             self._tray = None
@@ -661,11 +686,6 @@ class App:
             pass
         self.root.destroy()
 
-    def _auto_minimize(self):
-        """后台驻留：启动后若有托盘，则把窗口最小化隐藏到托盘。"""
-        if _HAS_TRAY and self._tray is not None:
-            self._hide_to_tray()
-
     def _auto_start(self):
         """后台驻留：启动后自动开始监控（无需手动点「开始监控」）。"""
         if self.running:
@@ -673,7 +693,7 @@ class App:
         try:
             self.toggle()
         except Exception:
-            pass
+            logger.exception("自动开始监控异常")
 
     def _summarize_params(self):
         """本次运行的关键参数，用于日志区与 Windows 通知展示。"""
@@ -812,6 +832,7 @@ class App:
                 messagebox.showerror("参数错误", str(e))
                 return
             if not os.path.exists(self.log_path_abs):
+                logger.warning("日志文件不存在：%s", self.log_path_abs)
                 messagebox.showerror("找不到日志",
                                      "日志文件不存在：\n%s" % self.log_path_abs)
                 return
@@ -823,6 +844,7 @@ class App:
                                                    daemon=True)
             self.monitor_thread.start()
             self._append_log("开始监控日志：%s" % self.log_path_abs)
+            logger.info("已开始监控，日志：%s", self.log_path_abs)
             # 在日志区展示本次关键参数，并弹系统通知
             params = self._summarize_params()
             self._append_log("本次关键参数：\n%s" % params)
@@ -1658,6 +1680,22 @@ class App:
         self._do_continue()
 
 
+def setup_logging():
+    """把运行日志写入脚本同目录的 autoclaw.log，便于排查启动/托盘等问题。"""
+    try:
+        logfile = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "autoclaw.log")
+        handler = logging.FileHandler(logfile, encoding="utf-8")
+    except Exception:
+        return
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    if not root.handlers:
+        root.addHandler(handler)
+
+
 def windows_notify(title, message):
     """弹出 Windows 系统通知（Toast）。
 
@@ -1684,12 +1722,17 @@ def hide_console():
 
 
 def main():
+    setup_logging()             # 先落库日志，任何异常都可追溯
+    hide_console()              # 尽早隐藏黑框终端，减少闪烁
+    logger.info("AutoClaw 自动继续启动")
     # 若当前前台可能是管理员进程（UIPI 前台锁定），普通权限无法把 AutoClaw 切到前台。
     # 未提权时自动以管理员身份重启一次，保证激活与输入有效。
     if not is_elevated() and relaunch_as_admin():
+        logger.info("将以管理员身份重启")
         return
-    hide_console()              # 隐藏本脚本的黑框终端
     root = tk.Tk()
+    root.withdraw()             # 创建后立即隐藏，避免启动瞬间闪现 UI
+    root.update_idletasks()
     App(root)
     root.mainloop()
 
