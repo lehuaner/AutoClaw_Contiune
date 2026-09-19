@@ -1,5 +1,5 @@
 {
-  "log_path": "logs/gateway.log",
+  "log_path": "AUTO",
   "status_codes": [
     403
   ],

@@ -357,6 +357,22 @@ class App:
             "input_offset_y": -64,     # 距窗口底部的向上偏移（像素，实测校准）
         }
 
+    def _locate_gateway_log(self):
+        """定位 gateway 日志：先确定 autoclaw 的数据目录，再拼 logs/gateway.log。
+
+        按常见安装位置探测，返回第一个存在的路径；都不存在时返回首选候选。"""
+        home = os.path.expandvars(r"%USERPROFILE%")
+        candidates = [
+            os.path.join(home, ".openclaw-autoclaw", "logs", "gateway.log"),
+            os.path.join(home, ".openclaw", "logs", "gateway.log"),
+            os.path.join(os.path.expandvars(r"%LOCALAPPDATA%"),
+                         ".openclaw-autoclaw", "logs", "gateway.log"),
+        ]
+        for c in candidates:
+            if os.path.exists(c):
+                return c
+        return candidates[0]
+
     def _resolve_path(self, p):
         """把配置路径解析为绝对路径。
 
@@ -369,8 +385,14 @@ class App:
 
     @property
     def log_path_abs(self):
-        """解析后的日志绝对路径（相对路径相对脚本目录）。"""
-        return self._resolve_path(self.cfg.get("log_path"))
+        """解析后的日志绝对路径。
+
+        配置为 AUTO 或留空时，自动定位 autoclaw 数据目录下的日志路径；
+        否则按配置解析（支持环境变量 / 绝对路径，缺省也可作相对脚本目录路径）。"""
+        raw = (self.cfg.get("log_path") or "").strip()
+        if not raw or raw.upper() == "AUTO":
+            return self._locate_gateway_log()
+        return self._resolve_path(raw)
 
     def _build_ui(self):
         pad = {"padx": 8, "pady": 4}

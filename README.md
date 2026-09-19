@@ -42,7 +42,7 @@ python autoclaw_continue.py
 
 | 字段 | 说明 | 默认 |
 |---|---|---|
-| `log_path` | gateway 日志路径。**支持相对路径**，相对路径将按脚本所在目录解析；也可填写 `%USERPROFILE%` / `~` 或绝对路径 | `logs/gateway.log` |
+| `log_path` | gateway 日志路径。`AUTO`(或留空) 时自动定位 autoclaw 数据目录下的日志；也可填 `%USERPROFILE%` / `~` / 绝对路径（相对路径按脚本目录解析） | `AUTO` |
 | `status_codes` | 视为限流的请求状态码列表 | `[403]` |
 | `window_match` | 用于定位 AutoClaw 窗口的标题关键字 | `AutoClaw` |
 | `target_agent` | 目标智能体名 | `honor` |
