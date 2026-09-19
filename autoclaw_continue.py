@@ -1624,12 +1624,33 @@ class App:
         except Exception:
             return False
 
+    def _restore_focus(self, prev, autoclaw_hwnd):
+        """处理结束后把焦点还给切换前的应用；若之前就是 AutoClaw 或窗口无效则跳过。"""
+        if not prev or not autoclaw_hwnd or prev == autoclaw_hwnd:
+            return
+        try:
+            if user32.GetForegroundWindow() != prev:
+                set_foreground(prev)
+        except Exception:
+            pass
+
     def _do_continue(self, agent="", session=""):
+        # 记录切换前的焦点窗口，处理 403 后自动还原（避免其它应用一直失焦）
         hwnd = self._find_autoclaw()
         if not hwnd:
             self._append_log("ERROR: 未找到 AutoClaw 窗口（标题匹配=%s）"
                              % self.cfg["window_match"])
             return
+        try:
+            prev_focus = user32.GetForegroundWindow()
+        except Exception:
+            prev_focus = 0
+        try:
+            self._do_continue_inner(hwnd, agent, session)
+        finally:
+            self._restore_focus(prev_focus, hwnd)
+
+    def _do_continue_inner(self, hwnd, agent="", session=""):
         try:
             text = self.cfg["continue_text"]
             # 若非前台会话，先切到目标会话（403 触发时会话可能不在前台）
